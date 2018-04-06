@@ -25,7 +25,6 @@ app.use(function (req, res, next) {
 });
 
 app.get('/groups', (req, resp) => {
-
   connection.getConnection((error, tempCont) => {
     var promises = [];
     if (!!error) {
@@ -33,7 +32,7 @@ app.get('/groups', (req, resp) => {
       console.log('Error');
     } else {
       tempCont.query(`SELECT grupo FROM equipoPais WHERE competicion_equipoPais = 1 GROUP BY grupo`
-      , (error, groups, fields) => {
+        , (error, groups, fields) => {
           // tempCont.release();
           if (!!error) {
             console.log('Error in query');
@@ -76,5 +75,56 @@ async function getPartidos(tempCont, group) {
       });
   });
 }
+
+app.get('/matchesOfTheDay', (req, resp) => {
+  connection.getConnection((error, tempCont) => {
+    var promises = [];
+    if (!!error) {
+      tempCont.release();
+      console.log('Error');
+    } else {
+      tempCont.query(`SELECT partidos.idPartido, partidos.fechaPartido
+      , EA.grupo, EA.nombre as NombreA, EB.nombre as NombreB, EA.keyname as keynameA, EB.keyname as keynameB
+      FROM partidos
+      INNER JOIN equipopais EA ON partidos.equipoPaisA = EA.idEquipoPais
+      INNER JOIN equipopais EB ON partidos.equipoPaisB = EB.idEquipoPais
+      WHERE partidos.habilitado = 1 
+      ORDER BY partidos.idPartido`, (error, results, fields) => {
+          // tempCont.release();
+          if (!!error) {
+            console.log('Error in query');
+          } else {
+            tempCont.release();
+            let tiles = [];
+            let cols = 0;
+            let colspanVal = 0;
+            const COLORS = ['lightblue', 'lightgreen', 'lightpink', 'lightyellow'];
+
+            switch (results.length) {
+              case 3:
+                cols = 6;
+                colspanVal = 2;
+                break;
+              default:
+                cols = 6;
+                colspanVal = 3;
+                break;
+            }
+
+            for (i = 0; i < results.length; i++) {
+              tiles.push({ colspan: colspanVal, rowspan: colspanVal, color: COLORS[i] });
+            }
+
+            send = {
+              'cols': cols,
+              'tiles': tiles,
+              'matches': results
+            }
+            resp.json(send);
+          }
+        });
+    }
+  });
+});
 
 app.listen('1337');
