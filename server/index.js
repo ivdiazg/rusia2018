@@ -43,7 +43,7 @@ app.get('/groups', (req, resp) => {
             }
             tempCont.release();
             Promise.all(promises).then((res) => {
-              // console.log('res', res);
+              // console.log('res', JSON.stringify(res));
               resp.json(res);
             });
           }
@@ -54,25 +54,29 @@ app.get('/groups', (req, resp) => {
 
 async function getPartidos(tempCont, group) {
   return await new Promise((resolve, reject) => {
-    tempCont.query(`SELECT partidos.idPartido, partidos.fechaPartido, EA.nombre as NombreA, EB.nombre as NombreB, EA.keyname as keynameA, EB.keyname as keynameB
-    FROM partidos
-    INNER JOIN equipopais EA ON partidos.equipoPaisA = EA.idEquipoPais
-    INNER JOIN equipopais EB ON partidos.equipoPaisB = EB.idEquipoPais
-    WHERE partidos.equipoPaisA IN (SELECT idEquipoPais FROM equipopais WHERE equipopais.grupo = '${group}' )
-    OR partidos.equipoPaisB IN (SELECT idEquipoPais FROM equipopais WHERE equipopais.grupo = '${group}' )
-    ORDER BY partidos.idPartido`, (error, results, fields) => {
-        // tempCont.release();
-        if (!!error) {
-          console.log('Error in query');
-        } else {
-          let grupo = null;
-          grupo = {
-            grupo: group,
-            partidos: results
-          }
-          resolve(grupo);
+    // tempCont.query(`SELECT partidos.idPartido, partidos.fechaPartido, EA.nombre as NombreA
+    //   , apuestas.golesA, apuestas.golesB, EB.nombre as NombreB, EB.nombre as NombreB
+    //   , EA.keyname as keynameA, EB.keyname as keynameB, partidos.habilitado
+    //   FROM partidos
+    //   INNER JOIN equipopais EA ON partidos.equipoPaisA = EA.idEquipoPais
+    //   INNER JOIN equipopais EB ON partidos.equipoPaisB = EB.idEquipoPais
+    //   LEFT JOIN apuestas ON partidos.idPartido = apuestas.partido_apuesta AND apuestas.participante = 1
+    //   WHERE partidos.equipoPaisA IN (SELECT idEquipoPais FROM equipopais WHERE equipopais.grupo = '${group}' )
+    //   OR partidos.equipoPaisB IN (SELECT idEquipoPais FROM equipopais WHERE equipopais.grupo = '${group}' )
+    //   ORDER BY partidos.idPartido`, (error, results, fields) => {
+    tempCont.query(`CALL groupsEquipos('${group}', 1)`, (error, results, fields) => {
+      // tempCont.release();
+      if (!!error) {
+        console.log('Error in query');
+      } else {
+        let grupo = null;
+        grupo = {
+          group: group,
+          matches: results[0]
         }
-      });
+        resolve(grupo);
+      }
+    });
   });
 }
 
@@ -83,13 +87,8 @@ app.get('/matchesOfTheDay', (req, resp) => {
       tempCont.release();
       console.log('Error');
     } else {
-      tempCont.query(`SELECT partidos.idPartido, partidos.fechaPartido
-      , EA.grupo, EA.nombre as NombreA, EB.nombre as NombreB, EA.keyname as keynameA, EB.keyname as keynameB
-      FROM partidos
-      INNER JOIN equipopais EA ON partidos.equipoPaisA = EA.idEquipoPais
-      INNER JOIN equipopais EB ON partidos.equipoPaisB = EB.idEquipoPais
-      WHERE partidos.habilitado = 1 
-      ORDER BY partidos.idPartido`, (error, results, fields) => {
+      participante = 1;
+      tempCont.query(`CALL matchesOfTheDay (${participante})`, (error, results, fields) => {
           // tempCont.release();
           if (!!error) {
             console.log('Error in query');
@@ -98,27 +97,26 @@ app.get('/matchesOfTheDay', (req, resp) => {
             let tiles = [];
             let cols = 0;
             let colspanVal = 0;
-            const COLORS = ['lightblue', 'lightgreen', 'lightpink', 'lightyellow'];
+            const COLORS = ['lightblue', 'lightgreen', 'lightpink', 'lightyellow'
+              , 'lightblue', 'lightgreen', 'lightpink', 'lightyellow'
+              , 'lightblue', 'lightgreen', 'lightpink', 'lightyellow'];
 
-            switch (results.length) {
-              case 3:
-                cols = 6;
-                colspanVal = 2;
-                break;
-              default:
-                cols = 6;
-                colspanVal = 3;
-                break;
+            if (results[0].length === 3 || results[0].length > 4) {
+              cols = 6;
+              colspanVal = 2;
+            } else {
+              cols = 6;
+              colspanVal = 3;
             }
 
-            for (i = 0; i < results.length; i++) {
+            for (i = 0; i < results[0].length; i++) {
               tiles.push({ colspan: colspanVal, rowspan: colspanVal, color: COLORS[i] });
             }
 
             send = {
               'cols': cols,
               'tiles': tiles,
-              'matches': results
+              'matches': results[0]
             }
             resp.json(send);
           }
