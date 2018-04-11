@@ -5,6 +5,7 @@
     "serve": "node index.js"
   },
   "dependencies": {
+    "body-parser": "^1.18.2",
     "express": "^4.15.3",
     "mysql": "^2.10.2"
   }
