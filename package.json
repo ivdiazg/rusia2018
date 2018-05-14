@@ -2,7 +2,7 @@
   "name": "rusia2018",
   "version": "1.0.0",
   "scripts": {
-    "serve": "node index.js"
+    "serve": "nodemon index.js"
   },
   "dependencies": {
     "body-parser": "^1.18.2",

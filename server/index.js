@@ -125,6 +125,48 @@ app.get('/matchesOfTheDay', (req, resp) => {
   });
 });
 
+app.get('/selMatchForResult', (req, resp) => {
+  connection.getConnection((error, tempCont) => {
+    if (!!error) {
+      tempCont.release();
+      console.log('Error');
+    } else {
+      tempCont.query(`CALL selMatchForResult ()`, (error, results, fields) => {
+        // tempCont.release();
+        if (!!error) {
+          console.log('Error in query');
+        } else {
+          tempCont.release();
+          let tiles = [];
+          let cols = 0;
+          let colspanVal = 0;
+          const COLORS = ['lightblue', 'lightgreen', 'lightpink', 'lightyellow'
+            , 'lightblue', 'lightgreen', 'lightpink', 'lightyellow'
+            , 'lightblue', 'lightgreen', 'lightpink', 'lightyellow'];
+
+          if (results[0].length === 3 || results[0].length > 4) {
+            cols = 6;
+            colspanVal = 2;
+          } else {
+            cols = 6;
+            colspanVal = 3;
+          }
+
+          for (i = 0; i < results[0].length; i++) {
+            tiles.push({ colspan: colspanVal, rowspan: colspanVal, color: COLORS[i] });
+          }
+          send = {
+            'cols': cols,
+            'tiles': tiles,
+            'matches': results[0]
+          }
+          resp.json(send);
+        }
+      });
+    }
+  });
+});
+
 app.post('/updApuestaMatch', (req, resp) => {
   var promises = [];
   connection.getConnection((error, tempCont) => {
@@ -151,6 +193,93 @@ async function updApuesta(tempCont, match) {
       , (error, groups, fields) => {
         if (!!error) {
           console.log('Error in query');
+        } else {
+          resolve(true);
+        }
+      });
+  });
+}
+
+app.post('/updResultMatch', (req, resp) => {
+  var promises = [];
+  connection.getConnection((error, tempCont) => {
+    if (!!error) {
+      tempCont.release();
+      console.log('Error');
+    } else {
+      req.body.forEach(match => {
+        promises.push(updResult(tempCont, match));
+      });
+      Promise.all(promises).then((res) => {
+        tempCont.release();
+        resp.json(res);
+      }).catch(err => {
+        console.log(err);
+      });
+    }
+  });
+});
+
+async function updResult(tempCont, match) {
+  return await new Promise((resolve, reject) => {
+    tempCont.query(`CALL updResultMatch (${match.idPartido}, ${match.golesA}, ${match.golesB}, ${match.competicion}, ${match.participante})`
+      , (error, groups, fields) => {
+        if (!!error) {
+          console.log('Error in query');
+        } else {
+          resolve(true);
+        }
+      });
+  });
+}
+
+app.post('/selApuestasMatch', (req, resp) => {
+  connection.getConnection((error, tempCont) => {
+    if (!!error) {
+      tempCont.release();
+      console.log('Error');
+    } else {
+      tempCont.query(`SELECT * FROM apuestas a WHERE a.partido_apuesta = ${req.body.partido}
+      ORDER BY a.partido_apuesta;`
+        , (error, results, fields) => {
+          tempCont.release();
+          if (!!error) {
+            console.log('Error in query');
+          } else {
+            resp.json(results);
+          }
+        });
+    }
+  });
+});
+
+app.post('/updPuntajeApuesta', (req, resp) => {
+  var promises = [];
+  connection.getConnection((error, tempCont) => {
+    if (!!error) {
+      tempCont.release();
+      console.log('Error');
+    } else {
+      req.body.forEach(apuesta => {
+        promises.push(updPuntajeApuesta(tempCont, apuesta));
+      });
+      Promise.all(promises).then((res) => {
+        tempCont.release();
+        resp.json(res);
+      }).catch(err => {
+        console.log(err);
+      });
+    }
+  });
+});
+
+async function updPuntajeApuesta(tempCont, apuesta) {
+  return await new Promise((resolve, reject) => {
+    tempCont.query(`CALL updPuntajeApuesta (${apuesta.partido_apuesta}, ${apuesta.participante}, ${apuesta.puntos})`
+      , (error, groups, fields) => {
+        if (!!error) {
+          console.log('Error in query');
+          // resolve(false);
         } else {
           resolve(true);
         }
