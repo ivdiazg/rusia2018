@@ -37,7 +37,7 @@ app.use(function (req, res, next) {
   next();
 });
 
-app.get('/groups', (req, resp) => {
+app.post('/groups', (req, resp) => {
   connection.getConnection((error, tempCont) => {
     var promises = [];
     if (!!error) {
@@ -52,7 +52,7 @@ app.get('/groups', (req, resp) => {
           } else {
             // resp.json(results);
             for (const group of groups) {
-              promises.push(getPartidos(tempCont, group.grupo));
+              promises.push(getPartidos(tempCont, group.grupo, req.body.participante));
             }
             Promise.all(promises).then((res) => {
               tempCont.release();
@@ -64,9 +64,9 @@ app.get('/groups', (req, resp) => {
   });
 });
 
-async function getPartidos(tempCont, group) {
+async function getPartidos(tempCont, group, participante) {
   return await new Promise((resolve, reject) => {
-    tempCont.query(`CALL groupsEquipos('${group}', 1)`, (error, results, fields) => {
+    tempCont.query(`CALL groupsEquipos('${group}', ${participante})`, (error, results, fields) => {
       // tempCont.release();
       if (!!error) {
         console.log('Error in query');
@@ -82,14 +82,14 @@ async function getPartidos(tempCont, group) {
   });
 }
 
-app.get('/matchesOfTheDay', (req, resp) => {
+app.post('/matchesOfTheDay', (req, resp) => {
   connection.getConnection((error, tempCont) => {
     if (!!error) {
       tempCont.release();
       console.log('Error');
     } else {
-      participante = 1;
-      tempCont.query(`CALL matchesOfTheDay (${participante})`, (error, results, fields) => {
+      // participante = 1;
+      tempCont.query(`CALL matchesOfTheDay (${req.body.participante})`, (error, results, fields) => {
         // tempCont.release();
         if (!!error) {
           console.log('Error in query');
@@ -222,12 +222,16 @@ app.post('/updResultMatch', (req, resp) => {
 
 async function updResult(tempCont, match) {
   return await new Promise((resolve, reject) => {
-    tempCont.query(`CALL updResultMatch (${match.idPartido}, ${match.golesA}, ${match.golesB}, ${match.competicion}, ${match.participante})`
+    tempCont.query(`CALL updResultMatch (${match.idPartido}, ${match.golesA}, ${match.golesB}, ${match.competicion})`
       , (error, groups, fields) => {
         if (!!error) {
           console.log('Error in query');
         } else {
-          resolve(true);
+          if (match.participante === 1) {
+            resolve(true);
+          } else {
+            resolve(false);
+          }
         }
       });
   });
@@ -286,5 +290,83 @@ async function updPuntajeApuesta(tempCont, apuesta) {
       });
   });
 }
+
+app.post('/autenticaUsuario', (req, resp) => {
+  var promises = [];
+  connection.getConnection((error, tempCont) => {
+    if (!!error) {
+      tempCont.release();
+      console.log('Error');
+    } else {
+      tempCont.query(`CALL autenticaUsuario ('${req.body.username}', '${req.body.password}')`
+        , (error, autenticado) => {
+          if (!!error) {
+            console.log('Error in query');
+          } else {
+            resp.json(autenticado[0][0]);
+          }
+        });
+    }
+  });
+});
+
+app.get('/statsParticipantes', (req, resp) => {
+  connection.getConnection((error, tempCont) => {
+    if (!!error) {
+      tempCont.release();
+      console.log('Error');
+    } else {
+      tempCont.query(`CALL statsParticipantes ()`, (error, results, fields) => {
+        // tempCont.release();
+        if (!!error) {
+          console.log('Error in query');
+        } else {
+          tempCont.release();
+          resp.json(results[0]);
+        }
+      });
+    }
+  });
+});
+
+app.post('/resultadoExactoParticipante', (req, resp) => {
+  connection.getConnection((error, tempCont) => {
+    if (!!error) {
+      tempCont.release();
+      console.log('Error');
+    } else {
+      tempCont.query(`CALL resultadoExactoParticipante (${req.body.participante})`
+        , (error, results, fields) => {
+          // tempCont.release();
+          if (!!error) {
+            console.log('Error in query');
+          } else {
+            tempCont.release();
+            resp.json(results[0][0]);
+          }
+        });
+    }
+  });
+});
+
+app.get('/countParticipantes', (req, resp) => {
+  connection.getConnection((error, tempCont) => {
+    if (!!error) {
+      tempCont.release();
+      console.log('Error');
+    } else {
+      tempCont.query(`SELECT COUNT(1) as participantes FROM participantes p WHERE p.competicion_participante = 1 AND p.habilitado = 1`
+        , (error, results, fields) => {
+          // tempCont.release();
+          if (!!error) {
+            console.log('Error in query');
+          } else {
+            tempCont.release();
+            resp.json(results[0]);
+          }
+        });
+    }
+  });
+});
 
 app.listen('1337');
